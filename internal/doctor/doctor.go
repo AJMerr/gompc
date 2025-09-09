@@ -3,9 +3,11 @@ package doctor
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 )
@@ -211,6 +213,30 @@ func Run(ctx context.Context, cfg Config, deep bool) Report {
 	rep.Result = "PASS"
 	rep.ExitCode = ExitOK
 	return rep
+}
+
+// Rendering
+func RenderHuman(cfg Config, cfgPath string, rep Report) {
+	if cfgPath != "" {
+		fmt.Printf("Doctor: mpd=%s:%d timeout=%dms config=%s\n", cfg.Host, cfg.Port, cfg.TimeoutMS, cfgPath)
+	} else {
+		fmt.Printf("Doctor: mpd=%s:%d timeout=%dms\n", cfg.Host, cfg.Port, cfg.TimeoutMS)
+	}
+	for _, c := range rep.Checks {
+		icon := "✓"
+		if !c.OK {
+			icon = "✗"
+		} else if c.Warning {
+			icon = "⚠"
+		}
+		fmt.Printf("%s %-15s %s (%dms)\n", icon, c.Name, c.Message, c.Duration)
+	}
+}
+
+func RenderJSON(rep Report) {
+	b, _ := json.MarshalIndent(rep, "", " ")
+	_, _ = os.Stdout.Write(b)
+	_, _ = os.Stdout.Write([]byte("\n"))
 }
 
 func ms(d time.Duration) int64 { return d.Milliseconds() }
