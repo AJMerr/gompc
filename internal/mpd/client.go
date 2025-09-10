@@ -27,3 +27,30 @@ type NowPlaying struct {
 	Duration time.Duration
 	Playing  bool
 }
+
+// Produces a connection for reconnecting
+type Client interface {
+	Connect(ctx context.Context, cfg Config) (Conn, error)
+}
+
+type Conn interface {
+	Close() error
+
+	// Library
+	ListAll(ctx context.Context) ([]Track, error)
+
+	// Playback controls
+	Play(ctx context.Context, uri string) error
+	TogglePause(ctx context.Context) error
+	Next(ctx context.Context) error
+	Prev(ctx context.Context) error
+
+	// Status
+	Status(ctx context.Context) (NowPlaying, error)
+
+	Idle(ctx context.Context, subs []string) ([]string, error)
+}
+
+func NewClient() Client {
+	return nil
+}
