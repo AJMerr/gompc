@@ -70,9 +70,24 @@ type PlayRequest struct {
 
 func PlaybackCmd(conn mpd.Conn, req PlayRequest) tea.Cmd {
 	return func() tea.Msg {
-		// TODO: switch req.Action { call conn.Play/TogglePause/Next/Prev }
-		// TODO: afterwards, fetch status and return StatusMsg
-		return ErrMsg{Op: "playback", Err: nil} // placeholder
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		switch req.Action {
+		case ActionPlayURI:
+			if err := conn.Play(ctx, req.URI); err != nil {
+				return ErrMsg{Op: "play", Err: err}
+			}
+		case ActionTogglePause:
+			if err := conn.TogglePause(ctx); err != nil {
+				return ErrMsg{Op: "pause", Err: err}
+			}
+		}
+		now, err := conn.Status(ctx)
+		if err != nil {
+			return ErrMsg{Op: "status", Err: err}
+		}
+		return StatusMsg{Now: now}
 	}
 }
 
@@ -88,7 +103,7 @@ func IdleCmd(conn mpd.Conn, subs []string) tea.Cmd {
 // UI tick for animating elapsed time; re-schedule from Update.
 func TickCmd(interval time.Duration) tea.Cmd {
 	return func() tea.Msg {
-		// time.Sleep(interval); return TickMsg{At: time.Now()}
-		return TickMsg{}
+		time.Sleep(interval)
+		return TickMsg{At: time.Now()}
 	}
 }
