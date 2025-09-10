@@ -189,9 +189,34 @@ func (t *tcpConn) Play(ctx context.Context, uri string) error {
 }
 
 func (t *tcpConn) TogglePause(ctx context.Context) error {
-	// Most MPD servers support bare "pause" as a toggle.
-	_, err := t.cmd(ctx, "pause")
-	return err
+	// Check current state
+	lines, err := t.cmd(ctx, "status")
+	if err != nil {
+		return err
+	}
+	state := ""
+	for _, ln := range lines {
+		if strings.HasPrefix(ln, "state: ") {
+			state = strings.TrimPrefix(ln, "state: ")
+			break
+		}
+	}
+
+	switch state {
+	case "play":
+		_, err = t.cmd(ctx, "pause 1") // pause
+		return err
+	case "pause":
+		_, err = t.cmd(ctx, "pause 0") // resume
+		return err
+	case "stop":
+		_, err = t.cmd(ctx, "play") // start playback if stopped
+		return err
+	default:
+		// Fallback: try protocol toggle
+		_, err = t.cmd(ctx, "pause")
+		return err
+	}
 }
 
 func (t *tcpConn) Next(ctx context.Context) error {

@@ -74,7 +74,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			uri := m.tracks[m.cursor].URI
 			return m, PlaybackCmd(m.conn, PlayRequest{Action: ActionPlayURI, URI: uri})
-		case "space":
+		case " ", "space":
 			if m.conn == nil {
 				return m, nil
 			}
