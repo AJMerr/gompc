@@ -16,14 +16,13 @@ func init() {
 		Use:   "tui",
 		Short: "Run the TUI music player",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Resolve MPD config from viper (flags/env/file already bound in root)
 			cfg := mpd.Config{
 				Host:    viper.GetString("mpd.host"),
 				Port:    viper.GetInt("mpd.port"),
 				Timeout: time.Duration(viper.GetInt("mpd.timeout_ms")) * time.Millisecond,
 			}
 			deps := app.Deps{
-				Client: mpd.NewClient(), // TODO: implement
+				Client: mpd.NewClient(),
 				Cfg:    cfg,
 			}
 			m := app.New(deps)
