@@ -28,7 +28,7 @@ func init() {
 	// Flags
 	rootCmd.PersistentFlags().String("host", "", "MPD host (env MPD_HOST)")
 	rootCmd.PersistentFlags().Int("port", 0, "MPD port (env MPD_PORT)")
-	rootCmd.PersistentFlags().Int("timeout", 0, "Timeout ms (env YOURAPP_TIMEOUT_MS)")
+	rootCmd.PersistentFlags().Int("timeout", 0, "Timeout ms (env GOMPC_TIMEOUT_MS)")
 	rootCmd.PersistentFlags().String("config", defaultConfigPath(), "Path to config file")
 
 	_ = viper.BindPFlag("mpd.host", rootCmd.PersistentFlags().Lookup("host"))
