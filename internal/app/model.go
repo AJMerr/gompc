@@ -136,17 +136,30 @@ func buildIndexes(ts []mpd.Track) libIndex {
 		albumsOut[a] = list
 	}
 
-	// optional: sort tracks within an album by Title
+	// Sorts track by track number
 	for k := range tracksByAA {
-		sort.Slice(tracksByAA[k], func(i, j int) bool {
+		sort.SliceStable(tracksByAA[k], func(i, j int) bool {
 			ti, tj := tracksByAA[k][i], tracksByAA[k][j]
-			if ti.Title == "" && tj.Title != "" {
-				return false
+			// Disc first (0 = unknown -> push to end)
+			di, dj := ti.DiscNo, tj.DiscNo
+			if di != dj {
+				if di == 0 || dj == 0 {
+					return dj == 0 // known discs come before unknown
+				}
+				return di < dj
 			}
-			if ti.Title != "" && tj.Title == "" {
-				return true
+			// Then track number (0 = unknown -> push to end)
+			if ti.TrackNo != tj.TrackNo {
+				if ti.TrackNo == 0 || tj.TrackNo == 0 {
+					return tj.TrackNo == 0 // known tracks before unknown
+				}
+				return ti.TrackNo < tj.TrackNo
 			}
-			return ti.Title < tj.Title
+			// Stable tie-breakers
+			if ti.Title != tj.Title {
+				return ti.Title < tj.Title
+			}
+			return ti.URI < tj.URI
 		})
 	}
 
