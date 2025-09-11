@@ -62,6 +62,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastErr = msg.Err
 		return m, nil
 
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+		return m, nil
+
 		// Key handling (add your preferred key lib later)
 	case tea.KeyMsg:
 		// Spacebar
