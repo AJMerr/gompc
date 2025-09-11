@@ -58,13 +58,18 @@ type Model struct {
 	selectAlbum  string
 
 	keys Keymap
+
+	// Styles
+	width, height int
+	styles        Styles
 }
 
 func New(d Deps) Model {
 	return Model{
-		deps:  d,
-		tab:   TabAll,
-		level: LevelArtist,
+		deps:   d,
+		tab:    TabAll,
+		level:  LevelArtist,
+		styles: newStyles(),
 		keys: Keymap{
 			Up: "up/k", Down: "down/j", Tab: "tab",
 			Enter: "enter", Space: "space",
