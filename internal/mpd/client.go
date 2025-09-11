@@ -176,20 +176,20 @@ func (t *tcpConn) ListAll(ctx context.Context) ([]Track, error) {
 		case cur != nil && strings.HasPrefix(ln, "Track: "):
 			cur.TrackNo = parseTrackNum(strings.TrimPrefix(ln, "Track: "))
 		case cur != nil && strings.HasPrefix(ln, "Disc: "):
-			cur.DiscNo = parseIntsafe(strings.TrimPrefix(ln, "Disc: "))
+			cur.DiscNo = parseIntSafe(strings.TrimPrefix(ln, "Disc: "))
 		}
 	}
 	flush()
 	return tracks, nil
 }
 
-func parseIntsafe(s string) int {
+func parseIntSafe(s string) int {
 	s = strings.TrimSpace(s)
-	if i, err := strconv.Atoi(s); err != nil {
-		return i
+	if n, err := strconv.Atoi(s); err == nil {
+		return n
 	}
 	if i := strings.IndexByte(s, '/'); i > 0 {
-		if n, err := strconv.Atoi(s[:i]); err != nil {
+		if n, err := strconv.Atoi(s[:i]); err == nil {
 			return n
 		}
 	}
@@ -197,7 +197,7 @@ func parseIntsafe(s string) int {
 }
 
 func parseTrackNum(s string) int {
-	return parseIntsafe(s)
+	return parseIntSafe(s)
 }
 
 func (t *tcpConn) Play(ctx context.Context, uri string) error {
