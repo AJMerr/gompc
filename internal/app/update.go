@@ -25,8 +25,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case LibLoadedMsg:
 		m.loading = false
-		m.tracks = msg.Tracks
-		if m.cursor >= len(m.tracks) {
+		m.allSongs = msg.Tracks
+
+		idx := buildIndexes(m.allSongs)
+		m.artists = idx.Artists
+		m.albums = nil
+		m.tracks = nil
+		m.selectArtist, m.selectAlbum = "", ""
+		m.level = LevelArtist
+		if m.tab == TabArtists {
 			m.cursor = 0
 		}
 		return m, nil
@@ -55,51 +62,117 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastErr = msg.Err
 		return m, nil
 
-	// Key handling (add your preferred key lib later)
+		// Key handling (add your preferred key lib later)
 	case tea.KeyMsg:
+		// Spacebar
+		if msg.Type == tea.KeySpace {
+			if m.conn != nil {
+				return m, PlaybackCmd(m.conn, PlayRequest{Action: ActionTogglePause})
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
-		case "q":
+		case "q", "ctrl+c":
 			return m, tea.Quit
+
 		case "tab":
 			if m.tab == TabAll {
 				m.tab = TabArtists
+				m.level = LevelArtist
+				m.cursor = 0
 			} else {
 				m.tab = TabAll
+				m.cursor = 0
 			}
-			m.cursor = 0
 			return m, nil
-		case "enter":
-			if len(m.tracks) == 0 || m.conn == nil {
-				return m, nil
-			}
-			uri := m.tracks[m.cursor].URI
-			return m, PlaybackCmd(m.conn, PlayRequest{Action: ActionPlayURI, URI: uri})
-		case " ", "space":
-			if m.conn == nil {
-				return m, nil
-			}
-			return m, PlaybackCmd(m.conn, PlayRequest{Action: ActionTogglePause})
-		case "n":
-			// TODO: next
-			return m, nil
-		case "p":
-			// TODO: prev
-			return m, nil
+
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
 			}
 			return m, nil
+
 		case "down", "j":
-			if m.cursor+1 < len(m.tracks) {
+			limit := 0
+			if m.tab == TabAll {
+				limit = len(m.allSongs)
+			} else { // artists tab
+				switch m.level {
+				case LevelArtist:
+					limit = len(m.artists)
+				case LevelAlbum:
+					limit = len(m.albums)
+				case LevelTrack:
+					limit = len(m.tracks)
+				}
+			}
+			if m.cursor+1 < limit {
 				m.cursor++
 			}
 			return m, nil
-		case "backspace":
-			// TODO: go up one level in Artists tab
+
+		case "backspace", "h":
+			if m.tab == TabArtists {
+				switch m.level {
+				case LevelTrack:
+					m.level = LevelAlbum
+					m.cursor = 0
+					m.tracks = nil
+				case LevelAlbum:
+					m.level = LevelArtist
+					m.cursor = 0
+					m.albums = nil
+					m.selectAlbum = ""
+				case LevelArtist:
+					// stay
+				}
+			}
 			return m, nil
+
+		case "enter":
+			if m.conn == nil {
+				return m, nil
+			}
+			if m.tab == TabAll {
+				if len(m.allSongs) == 0 {
+					return m, nil
+				}
+				uri := m.allSongs[m.cursor].URI
+				return m, PlaybackCmd(m.conn, PlayRequest{Action: ActionPlayURI, URI: uri})
+			}
+			// Artists tab
+			switch m.level {
+			case LevelArtist:
+				if len(m.artists) == 0 {
+					return m, nil
+				}
+				m.selectArtist = m.artists[m.cursor]
+				idx := buildIndexes(m.allSongs)
+				m.albums = idx.AlbumsByArtist[m.selectArtist]
+				m.level = LevelAlbum
+				m.cursor = 0
+				return m, nil
+
+			case LevelAlbum:
+				if len(m.albums) == 0 {
+					return m, nil
+				}
+				m.selectAlbum = m.albums[m.cursor]
+				idx := buildIndexes(m.allSongs)
+				m.tracks = idx.TracksByArtistAlbum[keyAA(m.selectArtist, m.selectAlbum)]
+				m.level = LevelTrack
+				m.cursor = 0
+				return m, nil
+
+			case LevelTrack:
+				if len(m.tracks) == 0 {
+					return m, nil
+				}
+				uri := m.tracks[m.cursor].URI
+				return m, PlaybackCmd(m.conn, PlayRequest{Action: ActionPlayURI, URI: uri})
+			}
 		}
 	}
-
 	return m, nil
 }

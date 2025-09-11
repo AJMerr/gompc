@@ -43,7 +43,7 @@ func tabLabel(active bool, s string) string {
 }
 
 func listAllView(m Model) string {
-	if len(m.tracks) == 0 {
+	if len(m.allSongs) == 0 {
 		return "\n(no tracks)\n"
 	}
 
@@ -53,8 +53,8 @@ func listAllView(m Model) string {
 		start = 0
 	}
 	end := start + maxRows
-	if end > len(m.tracks) {
-		end = len(m.tracks)
+	if end > len(m.allSongs) {
+		end = len(m.allSongs)
 	}
 	if m.cursor >= end {
 		start = m.cursor - maxRows + 1
@@ -62,14 +62,14 @@ func listAllView(m Model) string {
 			start = 0
 		}
 		end = start + maxRows
-		if end > len(m.tracks) {
-			end = len(m.tracks)
+		if end > len(m.allSongs) {
+			end = len(m.allSongs)
 		}
 	}
 
 	var b strings.Builder
 	for i := start; i < end; i++ {
-		t := m.tracks[i]
+		t := m.allSongs[i]
 		cursor := "  "
 		if i == m.cursor {
 			cursor = "> "
@@ -85,8 +85,8 @@ func listAllView(m Model) string {
 		}
 		fmt.Fprintf(&b, "%s%s — %s [%s]\n", cursor, artist, title, t.Album)
 	}
-	if end < len(m.tracks) {
-		fmt.Fprintf(&b, "  …and %d more\n", len(m.tracks)-end)
+	if end < len(m.allSongs) {
+		fmt.Fprintf(&b, "  …and %d more\n", len(m.allSongs)-end)
 	}
 	return b.String()
 }
@@ -104,9 +104,59 @@ func baseNameFromURI(uri string) string {
 }
 
 func artistsView(m Model) string {
-	// TODO: render artist/album/track levels based on m.level
-	return "\n(artists/albums/tracks here)\n"
+	var b strings.Builder
+	// breadcrumb
+	if m.selectArtist == "" {
+		b.WriteString("\nArtists\n")
+	} else if m.selectAlbum == "" || m.level != LevelTrack {
+		fmt.Fprintf(&b, "\nArtists › %s\n", m.selectArtist)
+	} else {
+		fmt.Fprintf(&b, "\nArtists › %s › %s\n", m.selectArtist, m.selectAlbum)
+	}
+
+	switch m.level {
+	case LevelArtist:
+		if len(m.artists) == 0 {
+			b.WriteString("(no artists)\n")
+			return b.String()
+		}
+		for i, a := range m.artists {
+			cur := "  "
+			if i == m.cursor {
+				cur = "> "
+			}
+			fmt.Fprintf(&b, "%s%s\n", cur, a)
+		}
+	case LevelAlbum:
+		if len(m.albums) == 0 {
+			b.WriteString("(no albums)\n")
+			return b.String()
+		}
+		for i, al := range m.albums {
+			cur := "  "
+			if i == m.cursor {
+				cur = "> "
+			}
+			fmt.Fprintf(&b, "%s%s\n", cur, al)
+		}
+	case LevelTrack:
+		if len(m.tracks) == 0 {
+			b.WriteString("(no tracks)\n")
+			return b.String()
+		}
+		for i, t := range m.tracks {
+			cur := "  "
+			if i == m.cursor {
+				cur = "> "
+			}
+			title := t.Title
+			if title == "" {
+				title = baseNameFromURI(t.URI)
+			}
+			fmt.Fprintf(&b, "%s%s — %s\n", cur, nz(t.Artist, "<unknown>"), title)
+		}
+	}
+	return b.String()
 }
 
-// Make sure Model implements tea.Model
 var _ tea.Model = (*Model)(nil)
