@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/truncate"
 )
 
 func (m Model) View() string {
@@ -26,7 +27,20 @@ func (m Model) View() string {
 		nz(m.now.Title, "<untitled>"),
 		nz(m.now.Album, "<unknown>"),
 	)
-	nowStr := s.HeaderNow.Render(now)
+	w := m.width
+	nowShown := now
+	barWidth := 24
+	switch {
+	case w > 0 && w < 50:
+		nowShown = fmt.Sprintf("%s — %s", nz(m.now.Artist, "<unknown>"), nz(m.now.Title, "<untitled>"))
+		barWidth = 8
+	case w > 0 && w < 80:
+		nowShown = fmt.Sprintf("%s — %s", nz(m.now.Artist, "<unknown>"), nz(m.now.Title, "<untitled>"))
+		barWidth = 16
+	default:
+		barWidth = clamp(w/3, 12, 30)
+	}
+	nowStr := s.HeaderNow.Render(fitTo(max(10, w/2), nowShown)) // NEW: truncate if needed
 
 	header := lipgloss.JoinHorizontal(lipgloss.Top,
 		title,
@@ -37,7 +51,7 @@ func (m Model) View() string {
 	)
 	line := s.Header.Render(header)
 	if m.now.Duration > 0 {
-		line += "  " + m.renderProgress(24)
+		line += "  " + m.renderProgress(barWidth) // width adapts with terminal
 	}
 	b.WriteString(line + "\n")
 
@@ -63,7 +77,7 @@ func (m Model) View() string {
 		b.WriteString("\n" + s.Error.Render(fmt.Sprintf("ERR: %v", m.lastErr)))
 	}
 	help := "↑/k ↓/j move • Enter play • Space pause • n/p next/prev • Tab switch • Backspace up • q quit"
-	b.WriteString("\n" + s.Footer.Render(help))
+	b.WriteString("\n" + s.Footer.Render(fitTo(m.width, help))) // NEW
 
 	return b.String()
 }
@@ -81,25 +95,10 @@ func listAllViewStyled(m Model) string {
 		return s.ListRowDim.Render("(no tracks)")
 	}
 
-	const maxRows = 30
-	start := m.cursor - maxRows/2
-	if start < 0 {
-		start = 0
-	}
-	end := start + maxRows
-	if end > len(m.allSongs) {
-		end = len(m.allSongs)
-	}
-	if m.cursor >= end {
-		start = m.cursor - maxRows + 1
-		if start < 0 {
-			start = 0
-		}
-		end = start + maxRows
-		if end > len(m.allSongs) {
-			end = len(m.allSongs)
-		}
-	}
+	rows := m.maxRowsForList()
+	start, end := windowAroundCursor(m.cursor, rows, len(m.allSongs))
+
+	cw := max(20, m.width-8)
 
 	var b strings.Builder
 	for i := start; i < end; i++ {
@@ -116,10 +115,10 @@ func listAllViewStyled(m Model) string {
 			title = baseNameFromURI(t.URI)
 		}
 		line := fmt.Sprintf("%s%s — %s [%s]", cur, artist, title, t.Album)
-		b.WriteString(rowStyle.Render(line) + "\n")
+		b.WriteString(rowStyle.Render(fitTo(cw, line)) + "\n") // NEW: truncate per-line
 	}
 	if end < len(m.allSongs) {
-		b.WriteString(s.ListRowDim.Render(fmt.Sprintf("  …and %d more", len(m.allSongs)-end)))
+		b.WriteString(s.ListRowDim.Render(fitTo(cw, fmt.Sprintf("  …and %d more", len(m.allSongs)-end)))) // NEW
 	}
 	return b.String()
 }
@@ -137,40 +136,47 @@ func artistsViewStyled(m Model) string {
 		b.WriteString(s.Breadcrumb.Render("Artists › "+m.selectArtist+" › "+m.selectAlbum) + "\n")
 	}
 
+	cw := max(20, m.width-8)
+	rows := m.maxRowsForList()
+
 	switch m.level {
 	case LevelArtist:
 		if len(m.artists) == 0 {
 			return s.ListRowDim.Render("(no artists)")
 		}
-		for i, a := range m.artists {
+		start, end := windowAroundCursor(m.cursor, rows, len(m.artists)) // NEW
+		for i := start; i < end; i++ {
 			cur := "  "
 			rowStyle := s.ListRow
 			if i == m.cursor {
 				cur = s.Cursor.Render("▍") + " "
 				rowStyle = rowStyle.Bold(true)
 			}
-			b.WriteString(rowStyle.Render(cur+a) + "\n")
+			b.WriteString(rowStyle.Render(fitTo(cw, cur+m.artists[i])) + "\n") // NEW
 		}
 
 	case LevelAlbum:
 		if len(m.albums) == 0 {
 			return s.ListRowDim.Render("(no albums)")
 		}
-		for i, al := range m.albums {
+		start, end := windowAroundCursor(m.cursor, rows, len(m.albums)) // NEW
+		for i := start; i < end; i++ {
 			cur := "  "
 			rowStyle := s.ListRow
 			if i == m.cursor {
 				cur = s.Cursor.Render("▍") + " "
 				rowStyle = rowStyle.Bold(true)
 			}
-			b.WriteString(rowStyle.Render(cur+al) + "\n")
+			b.WriteString(rowStyle.Render(fitTo(cw, cur+m.albums[i])) + "\n") // NEW
 		}
 
 	case LevelTrack:
 		if len(m.tracks) == 0 {
 			return s.ListRowDim.Render("(no tracks)")
 		}
-		for i, t := range m.tracks {
+		start, end := windowAroundCursor(m.cursor, rows, len(m.tracks)) // NEW
+		for i := start; i < end; i++ {
+			t := m.tracks[i]
 			cur := "  "
 			rowStyle := s.ListRow
 			if i == m.cursor {
@@ -190,7 +196,8 @@ func artistsViewStyled(m Model) string {
 				}
 				prefix = s.ListRowDim.Render(prefix)
 			}
-			b.WriteString(rowStyle.Render(cur+prefix+nz(t.Artist, "<unknown>")+" — "+title) + "\n")
+			line := cur + prefix + nz(t.Artist, "<unknown>") + " — " + title
+			b.WriteString(rowStyle.Render(fitTo(cw, line)) + "\n") // NEW
 		}
 	}
 	return b.String()
@@ -236,6 +243,58 @@ func baseNameFromURI(uri string) string {
 		return uri
 	}
 	return uri[slash+1:]
+}
+
+// number of list rows that fit current height
+func (m Model) maxRowsForList() int {
+	if m.height <= 0 {
+		return 30 // fallback before first WindowSizeMsg
+	}
+	rows := m.height - 7
+	if rows < 3 {
+		rows = 3
+	}
+	return rows
+}
+
+// center cursor inside a window of given size
+func windowAroundCursor(cursor, rows, n int) (start, end int) {
+	if n <= rows {
+		return 0, n
+	}
+	start = cursor - rows/2
+	if start < 0 {
+		start = 0
+	}
+	end = start + rows
+	if end > n {
+		end = n
+		start = end - rows
+	}
+	return
+}
+
+func fitTo(width int, s string) string {
+	if width <= 0 {
+		return s
+	}
+	return truncate.StringWithTail(s, uint(width), "…")
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+func clamp(x, lo, hi int) int {
+	if x < lo {
+		return lo
+	}
+	if x > hi {
+		return hi
+	}
+	return x
 }
 
 var _ tea.Model = (*Model)(nil)
