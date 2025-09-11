@@ -23,6 +23,8 @@ type Track struct {
 	Artist   string
 	Album    string
 	Duration time.Duration
+	TrackNo  int
+	DiscNo   int
 }
 
 type NowPlaying struct {
