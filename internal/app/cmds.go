@@ -109,27 +109,39 @@ func TickCmd(interval time.Duration) tea.Cmd {
 }
 
 func EnqueueAndPlayCmd(conn mpd.Conn, uris []string, start int) tea.Cmd {
-	u := make([]string, 0, max(0, len(uris)-start))
-	for _, uri := range uris[start:] {
-		if uri != "" {
-			u = append(u, uri)
-		}
+	// slice from start
+	if start < 0 {
+		start = 0
 	}
+	if start >= len(uris) {
+		return func() tea.Msg { return ErrMsg{Op: "enqueue", Err: nil} }
+	}
+	u := uris[start:]
 
 	return func() tea.Msg {
-		if len(u) == 0 {
-			return ErrMsg{Op: "enqueue", Err: nil}
-		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		if err := conn.QueueClear(ctx); err != nil {
 			return ErrMsg{Op: "clear", Err: err}
 		}
-		for _, uri := range u {
+		// first track: addid to get ID, then add the rest
+		firstID := 0
+		var err error
+		if firstID, err = conn.QueueAddID(ctx, u[0]); err != nil {
+			return ErrMsg{Op: "addid", Err: err}
+		}
+		for _, uri := range u[1:] {
+			if uri == "" {
+				continue
+			}
 			if err := conn.QueueAdd(ctx, uri); err != nil {
 				return ErrMsg{Op: "add", Err: err}
 			}
+		}
+		if err := conn.PlayID(ctx, firstID); err != nil {
+			// fallback to position if needed
+			_ = conn.PlayPos(ctx, 0)
 		}
 		now, err := conn.Status(ctx)
 		if err != nil {
