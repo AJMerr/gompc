@@ -60,7 +60,7 @@ type Conn interface {
 
 	QueueClear(ctx context.Context) error
 	QueueAdd(ctx context.Context, uri string) error
-	QueueAddID(ctx context.Context, uri string) error
+	QueueAddID(ctx context.Context, uri string) (int, error)
 	PlayPos(ctx context.Context, pos int) error
 	PlayID(ctx context.Context, id int) error
 }
