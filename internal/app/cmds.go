@@ -107,3 +107,50 @@ func TickCmd(interval time.Duration) tea.Cmd {
 		return TickMsg{At: time.Now()}
 	}
 }
+
+func EnqueueAndPlayCmd(conn mpd.Conn, uris []string, start int) tea.Cmd {
+	u := make([]string, 0, max(0, len(uris)-start))
+	for _, uri := range uris[start:] {
+		if uri != "" {
+			u = append(u, uri)
+		}
+	}
+
+	return func() tea.Msg {
+		if len(u) == 0 {
+			return ErrMsg{Op: "enqueue", Err: nil}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := conn.QueueClear(ctx); err != nil {
+			return ErrMsg{Op: "clear", Err: err}
+		}
+		for _, uri := range u {
+			if err := conn.QueueAdd(ctx, uri); err != nil {
+				return ErrMsg{Op: "add", Err: err}
+			}
+		}
+		now, err := conn.Status(ctx)
+		if err != nil {
+			return ErrMsg{Op: "status", Err: err}
+		}
+		return StatusMsg{Now: now}
+	}
+}
+
+func EnqueueAllFromCursor(conn mpd.Conn, tracks []mpd.Track, start int) tea.Cmd {
+	uris := make([]string, len(tracks))
+	for i := range tracks {
+		uris[i] = tracks[i].URI
+	}
+	return EnqueueAndPlayCmd(conn, uris, start)
+}
+
+func EnqueueAlbumFromCursor(conn mpd.Conn, tracks []mpd.Track, start int) tea.Cmd {
+	uris := make([]string, len(tracks))
+	for i := range tracks {
+		uris[i] = tracks[i].URI
+	}
+	return EnqueueAndPlayCmd(conn, uris, start)
+}
