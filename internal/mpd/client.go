@@ -60,7 +60,9 @@ type Conn interface {
 
 	QueueClear(ctx context.Context) error
 	QueueAdd(ctx context.Context, uri string) error
+	QueueAddID(ctx context.Context, uri string) error
 	PlayPos(ctx context.Context, pos int) error
+	PlayID(ctx context.Context, id int) error
 }
 
 var _ Client = (*client)(nil)
@@ -320,14 +322,31 @@ func (t *tcpConn) QueueClear(ctx context.Context) error {
 	_, err := t.cmd(ctx, "clear")
 	return err
 }
-
 func (t *tcpConn) QueueAdd(ctx context.Context, uri string) error {
 	_, err := t.cmd(ctx, `add "`+escape(uri)+`"`)
 	return err
 }
-
+func (t *tcpConn) QueueAddID(ctx context.Context, uri string) (int, error) {
+	lines, err := t.cmd(ctx, `addid "`+escape(uri)+`"`)
+	if err != nil {
+		return 0, err
+	}
+	for _, ln := range lines {
+		if strings.HasPrefix(ln, "Id: ") {
+			n, _ := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(ln, "Id: ")))
+			if n > 0 {
+				return n, nil
+			}
+		}
+	}
+	return 0, fmt.Errorf("addid: missing Id")
+}
 func (t *tcpConn) PlayPos(ctx context.Context, pos int) error {
 	_, err := t.cmd(ctx, fmt.Sprintf("play %d", pos))
+	return err
+}
+func (t *tcpConn) PlayID(ctx context.Context, id int) error {
+	_, err := t.cmd(ctx, fmt.Sprintf("playid %d", id))
 	return err
 }
 
