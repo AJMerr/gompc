@@ -135,14 +135,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "enter":
-			if m.conn == nil {
-				return m, nil
-			}
 			if m.tab == TabAll {
-				if len(m.allSongs) == 0 {
-					return m, nil
+				// Play from All view (enqueue from cursor)
+				if m.conn != nil && len(m.allSongs) > 0 {
+					return m, EnqueueAllFromCursor(m.conn, m.allSongs, m.cursor)
 				}
-				return m, EnqueueAllFromCursor(m.conn, m.allSongs, m.cursor)
+				return m, nil
 			}
 			// Artists tab
 			switch m.level {
@@ -169,10 +167,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case LevelTrack:
-				if len(m.tracks) == 0 {
-					return m, nil
+				// Play from album tracks (enqueue from cursor)
+				if m.conn != nil && len(m.tracks) > 0 {
+					return m, EnqueueAlbumFromCursor(m.conn, m.tracks, m.cursor)
 				}
-				return m, EnqueueAlbumFromCursor(m.conn, m.tracks, m.cursor)
+				return m, nil
 			}
 		}
 	}
