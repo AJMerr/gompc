@@ -142,8 +142,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.allSongs) == 0 {
 					return m, nil
 				}
-				uri := m.allSongs[m.cursor].URI
-				return m, PlaybackCmd(m.conn, PlayRequest{Action: ActionPlayURI, URI: uri})
+				return m, EnqueueAllFromCursor(m.conn, m.allSongs, m.cursor)
 			}
 			// Artists tab
 			switch m.level {
@@ -173,8 +172,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.tracks) == 0 {
 					return m, nil
 				}
-				uri := m.tracks[m.cursor].URI
-				return m, PlaybackCmd(m.conn, PlayRequest{Action: ActionPlayURI, URI: uri})
+				return m, EnqueueAlbumFromCursor(m.conn, m.tracks, m.cursor)
 			}
 		}
 	}
