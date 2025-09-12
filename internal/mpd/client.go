@@ -57,6 +57,10 @@ type Conn interface {
 	Status(ctx context.Context) (NowPlaying, error)
 
 	Idle(ctx context.Context, subs []string) ([]string, error)
+
+	QueueClear(ctx context.Context) error
+	QueueAdd(ctx context.Context, uri string) error
+	PlayPos(ctx context.Context, pos int) error
 }
 
 var _ Client = (*client)(nil)
@@ -310,6 +314,21 @@ func (t *tcpConn) Idle(ctx context.Context, subs []string) ([]string, error) {
 		}
 	}
 	return out, nil
+}
+
+func (t *tcpConn) QueueClear(ctx context.Context) error {
+	_, err := t.cmd(ctx, "clear")
+	return err
+}
+
+func (t *tcpConn) QueueAdd(ctx context.Context, uri string) error {
+	_, err := t.cmd(ctx, `add "`+escape(uri)+`"`)
+	return err
+}
+
+func (t *tcpConn) PlayPos(ctx context.Context, pos int) error {
+	_, err := t.cmd(ctx, fmt.Sprintf("play %d", pos))
+	return err
 }
 
 func escape(s string) string {
